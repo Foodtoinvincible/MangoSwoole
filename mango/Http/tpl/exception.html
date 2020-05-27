@@ -1,0 +1,230 @@
+<!doctype html>
+{php}
+if(!function_exists('parse_padding')){
+function parse_padding($source)
+{
+$length  = strlen(strval(count($source['source']) + $source['first']));
+return 40 + ($length - 1) * 8;
+}
+}
+{/php}
+
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex,nofollow" />
+    <title>AQA</title>
+</head>
+<style type="text/css">
+    *{
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+        letter-spacing: 1px;
+    }
+    ul{
+        list-style: none;
+    }
+    body,html{
+        height: 100%;
+    }
+    body{
+        color: #333;
+        background: #fff;
+        font-size: 10px;
+        font-family: "Microsoft YaHei UI","serif","sans-serif";
+    }
+    main{
+        padding: 20px;
+    }
+    h2{
+        color: #4288ce;
+        font-weight: 400;
+        padding: 6px 0;
+        margin: 6px 0 0;
+        font-size: 1.8em;
+        border-bottom: 1px solid #eee;
+    }
+    h1{
+        margin: 10px 0 0;
+        font-size: 2.8em;
+        font-weight: 500;
+        line-height: 32px;
+    }
+    a{
+        color: #868686;
+        cursor: pointer;
+    }
+    a:hover{
+        border-bottom: 1px solid #868686;
+    }
+    .exception-panel{
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 15px;
+        width: 100%;
+    }
+    .source-code {
+        padding: 6px;
+        margin-top: 10px;
+        border: 1px solid #ddd;
+        background: #f9f9f9;
+        overflow-x: auto;
+    }
+    .source-code pre{
+        margin: 0;
+        padding: 0;
+    }
+    ol{
+        display: inline-block;
+    }
+
+    .source-code ol{
+        margin: 0;
+        color: #4288ce;
+        display: inline-block;
+        min-width: 100%;
+        font-size: 1.4em;
+        font-family: "Century Gothic",Consolas,"Liberation Mono",Courier,Verdana;
+        padding-left: {:parse_padding($code_list)}px;
+    }
+    .source-code.trace li{
+        padding-left: 15px;
+    }
+    .source-code li{
+        border-left: 1px solid #ddd;
+        height: 25px;
+        line-height: 25px;
+        letter-spacing: 1px;
+    }
+    .source-code code{
+        height: 100%;
+        display: inline-block;
+        border-left: 1px solid #fff;
+        font-family: Consolas,"Liberation Mono",Courier,Verdana,"微软雅黑";
+    }
+    .source-code pre .string{
+        color: #080;
+    }
+    .source-code pre .note{
+        color: #800;
+    }
+    .source-code pre .error{
+        display: block;
+        width: 100%;
+        background: red;
+    }
+    .source-code pre .keywords{
+        color: #008;
+    }
+    .source-code pre .variable{
+        color: #000;
+    }
+    .source-code pre .error-line{
+        background: #f8cbcb;
+    }
+    .text-block{
+        color: #333;
+    }
+    .exception-var table{
+        width: 100%;
+        margin: 12px 0;
+        box-sizing: border-box;
+        table-layout: fixed;
+        word-wrap: break-word;
+    }
+    .exception-var table caption{
+        text-align: left;
+        font-size: 1.6em;
+        font-weight: bold;
+        padding: 6px 0;
+    }
+    .exception-var table caption small{
+        font-weight: 300;
+        display: inline-block;
+        margin-left: 10px;
+        color: #ccc;
+    }
+    .exception-var table tbody {
+        font-size: 1.4em;
+        font-family: Consolas, "Liberation Mono", Courier, "微软雅黑",serif;
+    }
+    .exception-var table tbody tr{
+        line-height: 25px;
+    }
+    .exception-var table td:first-child {
+        width: 28%;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .exception-var table td {
+        padding: 0 6px;
+        vertical-align: top;
+        word-break: break-all;
+    }
+</style>
+<body>
+<main>
+    <section class="exception-panel">
+        <h2 class="text-blue">
+            #0 [{$code}]&nbsp;&nbsp;{:sprintf('%s  in  %s', basename($exception_name), basename($file))}&nbsp;&nbsp;
+            <a class="toggle" title="{$file} line {$line}">{:basename($file)} line {$line}</a>
+        </h2>
+        <h1>{$msg}</h1>
+        <div class="source-code">
+            <pre><ol start="{$code_list['first']}">{foreach $code_list['source'] as $k=>$val}<li class="{$code_list['first'] + $k == $code_list['err_line'] ? 'error-line' : ''}"><code class="text-block">{$val|raw}</code></li>{/foreach}</ol></pre>
+        </div>
+        <h2>Call Stack</h2>
+        <div class="source-code trace">
+            <ol start="1">
+                {foreach $trace as $k=>$v}
+                {if $k==0}
+                <li>
+                    <div class="text-block">
+                        in
+                        <a class="toggle" title="{$v['class']}.php">
+                            {:sprintf('%s.php line %d',basename(str_replace('\\\\','/',$v['class'])),$code_list['err_line'])}
+                        </a>
+                    </div>
+                </li>
+                {elseif(isset($v['class'])) /}
+                <li>
+                    <div class="text-block">
+                        at
+                        {:sprintf(" %s->%s() in",basename(str_replace('\\\\','/',$v['class'])),$v['function'])}
+                        <a class="toggle" title="{$v['class']}.php">
+                            {:sprintf('%s.php line %d',basename(str_replace('\\\\','/',$v['file'])),$v['line'])}
+                        </a>
+                    </div>
+                </li>
+                {/if}
+                {/foreach}
+            </ol>
+        </div>
+    </section>
+    <h2>Environment Variables</h2>
+    <div class="exception-var">
+
+        {foreach $vars as $key=>$item}
+        <table>
+            <caption>{$key}
+                {if empty($item)}
+                <small>empty</small>
+                {/if}
+            </caption>
+            <tbody>
+            {foreach $item as $k=>$v}
+            <tr>
+                <td>{$k}</td>
+                <td>{$v}</td>
+            </tr>
+            {/foreach}
+            </tbody>
+        </table>
+        {/foreach}
+    </div>
+</main>
+
+
+</body>
+</html>
