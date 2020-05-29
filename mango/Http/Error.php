@@ -57,7 +57,7 @@ class Error{
             'file'              => $error->getFile(),
             'trace'             => $error->getTrace()
         ]);
-        $request->response()->html($html);
+        $request->response()->html($html,404);
     }
 
     public static function exception(\Exception $exception,Request $request){
@@ -81,7 +81,7 @@ class Error{
                 ]
             ];
             $html = $view->fetch(__DIR__.'/tpl/exception.html',$vars);
-            $request->response()->html($html);
+            $request->response()->html($html,404);
         }catch (\Throwable $throwable){
             var_dump($throwable->getMessage());
 
