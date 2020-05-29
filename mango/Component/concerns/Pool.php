@@ -69,7 +69,7 @@ trait Pool{
     protected function getPool(string $name):?Channel
     {
         if (empty($this->pools[$name])) {
-            return null;
+            return $this->createPool($name);
         }
         return $this->pools[$name];
     }
@@ -86,18 +86,13 @@ trait Pool{
     /**
      * 创建连接池
      * @param string $name 标识
-     * @param array  $conf 配置
-     *              [
-     *               max_wait_time => 获取对象最大等待时间 (s),
-     *               max_count     => 池中最大连接数
-     *               min_count     => 池中最小连接数
-     *               timer_ms      => 定时器周期时长 (ms)
-     *               spare_time    => 对象最大空闲时间 (s)
-     *              ]
-     * @return Channel
+     * @return Channel|null
      */
-    protected function createPool(string $name,array $conf): Channel{
-        $this->pools[$name] = new Channel($this->maxWaitTime[$name]);
+    public function createPool(string $name): ?Channel{
+
+        if ($this->hasPool($name)) return null;
+        $conf = $this->getPoolConfig($name);
+        $this->pools[$name] = new Channel($conf['max_count']);
         // 最大等待时间
         $this->maxWaitTime[$name]   = $conf['max_wait_time'];
         // 最大数量
@@ -119,36 +114,38 @@ trait Pool{
      * 连接池定时器
      * @param string $name
      */
-    protected function poolTimer(string $name): void{
+    private function poolTimer(string $name): void{
+        if ($this->timeId[$name])
+            Timer::getInstance()->clear($this->timeId[$name]);
 
         $this->timeId[$name] = Timer::getInstance()->loop($this->timerMs[$name],function () use ($name){
-            foreach ($this->pools as $pool){
-                $list = [];
-
-                // 请求过多。暂不回收
-                if ($pool->length() < intval($this->minCount[$name] * 0.5)) {
-                    return;
-                }
-                while (true) {
-                    if (!$pool->isEmpty()) {
-                        $obj = $pool->pop(0.001);
-                        $lastUseTime = $obj['last_use_time'];
-                        if ($this->connectionCount[$name] > $this->maxCount[$name] && (time() - $lastUseTime > $this->spareTime[$name])) {
-                            // 回收
-                            $this->connectionCount[$name]--;
-                        } else {
-                            array_push($list, $obj);
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                // 返还
-                foreach ($list as $item) {
-                    $this->pools[$name]->push($item);
-                }
-                unset($list);
+            $pool = $this->getPool($name);
+            // 请求过多。暂不回收
+            if ($pool->length() < intval($this->minCount[$name] * 0.5)) {
+                return;
             }
+            $list = [];
+            while (true) {
+                if (!$pool->isEmpty()) {
+                    $obj = $pool->pop(0.001);
+                    $lastUseTime = $obj['last_use_time'];
+                    if ($this->connectionCount[$name] > $this->minCount[$name] && (time() - $lastUseTime > $this->spareTime[$name])) {
+                        // 回收
+                        $this->connectionCount[$name]--;
+                        $this->poolMemberDestroy($obj['connection'],$name);
+                        unset($obj);
+                    } else {
+                        array_push($list, $obj);
+                    }
+                } else {
+                    break;
+                }
+            }
+            // 返还
+            foreach ($list as $item) {
+                $this->pools[$name]->push($item);
+            }
+            unset($list);
         });
     }
 
@@ -186,14 +183,24 @@ trait Pool{
                 $connection->rollback();
             }
             Context::remove();
-            $pool->push([
-                'last_use_time' => time(),
-                'connection'    => $connection
-            ]);
+            if (!$pool->isFull()){
+                $pool->push([
+                    'last_use_time' => time(),
+                    'connection'    => $connection
+                ]);
+            }
         });
 
         return $connection;
     }
+
+    /**
+     * 池对象销毁回调
+     * @param mixed $connection
+     * @param string $name
+     */
+    protected function poolMemberDestroy($connection,string $name){}
+
 
     /**
      * 创建连接池连接
@@ -201,6 +208,21 @@ trait Pool{
      * @return mixed
      */
     abstract protected function createPoolConnection(string $name);
+
+
+    /**
+     * 连接池配置
+     * @param $name
+     * @return array
+     *             [
+     *               max_wait_time => 获取对象最大等待时间 (s),
+     *               max_count     => 池中最大连接数
+     *               min_count     => 池中最小连接数
+     *               timer_ms      => 定时器周期时长 (ms)
+     *               spare_time    => 对象最大空闲时间 (s)
+     *              ]
+     */
+    abstract protected function getPoolConfig(string $name): array;
 
     /**
      * 销毁连接池
