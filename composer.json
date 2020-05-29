@@ -4,7 +4,9 @@
 		"ext-json": "*",
 		"ext-inotify": "*",
 		"ext-pcntl": "*",
-		"ext-redis": "*"
+		"ext-redis": "*",
+		"ext-mbstring": "*",
+		"ext-ctype": "*"
 	},
 	"autoload": {
 		"psr-4": {
