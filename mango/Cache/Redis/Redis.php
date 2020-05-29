@@ -31,15 +31,21 @@ class Redis{
      * @param string $name
      * @return mixed|null
      */
-    protected function instance(string $name = 'pool')
+    protected function instance(string $name = 'default')
     {
-
         return Context::rememberData("redis.connection.{$name}", function () use ($name) {
-            if (!$this->hasPool($name)){
-                $this->createPool($name,$this->getPoolConfig($name));
-            }
             return $this->getPoolConnection($name);
         });
+    }
+
+    /**
+     * 销毁连接
+     * @param Redis  $connection
+     * @param string $name
+     */
+    protected function poolMemberDestroy($connection, string $name){
+        $connection->close();
+        $connection = null;
     }
 
     /**
@@ -50,7 +56,7 @@ class Redis{
     protected function createPoolConnection(string $name){
 
         $redis = new \Redis();
-        $conf = Config::getInstance()->get('redis.connection');
+        $conf = Config::getInstance()->get('app.redis.connection');
         if (!$conf)
             throw new \InvalidArgumentException('Redis Config Connection not exits');
         $redis->connect($conf['host'],$conf['port'] ?? 6379,$conf['timeout'] ?? 5);
