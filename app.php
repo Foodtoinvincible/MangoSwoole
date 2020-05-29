@@ -13,7 +13,8 @@
 return [
 
     'server'    => [
-        'type'  => SERVER_TYPE_HTTP
+        'type'          => SERVER_TYPE_HTTP,
+        'controller'    => '\\App\Http\Index\Controller\\'
     ],
 
     //----------------------------------------
@@ -45,6 +46,16 @@ return [
             'database'  => 0,
             'password'  => ''
         ],
+        // 获取池对象最大等待时长 (s)
+        'max_wait_time' => 5,
+        // 池中最小连接数量
+        'min_count'     => 1,
+        // 池中最大连接数量
+        'max_count'     => 3,
+        // 定时器执行周期
+        'timer_ms'      => 12000,
+        // 池中对象最大空闲时间
+        'spare_time'    => 30
     ],
 
     //----------------------------------------
@@ -64,7 +75,7 @@ return [
                 'username' => 'root',
                 'password' => 'root',
                 // 数据库名
-                'database' => 'message',
+                'database' => 'template',
                 // 数据库编码默认采用utf8
                 'charset'  => 'utf8mb4',
                 // 数据库表前缀
@@ -73,10 +84,18 @@ return [
                 'debug'    => true,
                 // 是否开启SQL监听（日志）
                 'trigger_sql' => false,
+                // 获取池对象最大等待时长 (s)
+                'max_wait_time' => 5,
+                // 池中最小连接数量
+                'min_count'     => 1,
+                // 池中最大连接数量
+                'max_count'     => 3,
+                // 定时器执行周期
+                'timer_ms'      => 12000,
+                // 池中对象最大空闲时间
+                'spare_time'    => 30
             ]
         ],
-        'max_active'    => 3,
-        'max_wait_time' => 5,
     ],
 
     //----------------------------------------
@@ -122,5 +141,8 @@ return [
         'tpl_replace_string' => [],
         // 默认过滤方法 用于普通标签输出
         'default_filter'     => 'htmlentities',
+        // 模板位置
+        'view_path'          => __DIR__.DIRECTORY_SEPARATOR.'view'.DIRECTORY_SEPARATOR,
+        'cache'              => false,
     ]
 ];
