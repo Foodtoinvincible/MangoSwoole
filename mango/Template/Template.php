@@ -33,6 +33,9 @@ class Template{
         'taglib_build_in'    => 'Tag', // 内置标签库名称(标签使用不必指定标签库名称),以逗号分隔 注意解析顺序
         'tpl_replace_string' => [],
         'default_filter'     => 'htmlentities', // 默认过滤方法 用于普通标签输出
+        'view_suffix'        => '.html',     // 模板后缀
+        'view_path'          => '',          // 模板路径
+        'cache'              => true        // 是否开启缓存
     ];
 
 
@@ -42,7 +45,7 @@ class Template{
      */
     public function __construct(){
 
-        $conf = Config::getInstance()->get('template');
+        $conf = Config::getInstance()->get('app.template');
         if (!empty($conf)){
             $this->config = array_merge($this->config,$conf);
         }
@@ -123,6 +126,8 @@ class Template{
      * @throws Exception
      */
     public function fetch(string $template,array $vars = [],array $config = []){
+
+        $template = $this->parseTemplateFile($template);
         if (!empty($vars)) {
             $this->data = array_merge($this->data,$vars);
         }
@@ -133,7 +138,7 @@ class Template{
         $filename = $this->getFilename($template);
         $cacheFilePath = $this->getSavePath().'/'.$filename;
         // 检查是否存在缓存
-        if ($this->isCache($cacheFilePath)){
+        if ($this->isOpenCache() && $this->isCache($cacheFilePath)){
             $cacheMd5 = $this->getCacheFileMd5($cacheFilePath);
             if ($cacheMd5 == md5_file($template)){
                 return $this->getEcho($cacheFilePath);
@@ -169,6 +174,14 @@ class Template{
     protected function isCache(string $path): bool{
         clearstatcache();
         return is_file($path);
+    }
+
+    /**
+     * 判断是否开启缓存
+     * @return bool
+     */
+    protected function isOpenCache(): bool {
+        return  $this->config['cache'];
     }
 
     /**
@@ -274,6 +287,8 @@ class Template{
             return;
         }
 
+        $this->parseInclude($content);
+
         $this->parsePhp($content);
 
         // 内置标签库 无需使用taglib标签导入就可以使用 并且不需使用标签库XML前缀
@@ -283,6 +298,151 @@ class Template{
             $this->parseTagLib($tag, $content, true);
         }
         $this->parseTag($content);
+    }
+
+    /**
+     * 解析模板中的include标签
+     * @param  string $content 要解析的模板内容
+     * @return void
+     */
+    private function parseInclude(string &$content): void
+    {
+        $regex = $this->getRegex('include');
+        $func  = function ($template) use (&$func, &$regex, &$content) {
+            if (preg_match_all($regex, $template, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $array = $this->parseAttr($match[0]);
+                    $file  = $array['file'];
+                    unset($array['file']);
+
+                    // 分析模板文件名并读取内容
+                    $parseStr = $this->parseTemplateName($file);
+
+                    foreach ($array as $k => $v) {
+                        // 以$开头字符串转换成模板变量
+                        if (0 === strpos($v, '$')) {
+                            $v = $this->get(substr($v, 1));
+                        }
+
+                        $parseStr = str_replace('[' . $k . ']', $v, $parseStr);
+                    }
+
+                    $content = str_replace($match[0], $parseStr, $content);
+                    // 再次对包含文件进行模板分析
+                    $func($parseStr);
+                }
+                unset($matches);
+            }
+        };
+
+        // 替换模板中的include标签
+        $func($content);
+    }
+
+    /**
+     * 分析加载的模板文件并读取内容 支持多个模板文件读取
+     * @param string $templateName
+     * @return string
+     * @throws Exception
+     */
+    protected function parseTemplateName(string $templateName): string
+    {
+        $array    = explode(',', $templateName);
+        $parseStr = '';
+
+        foreach ($array as $templateName) {
+            if (empty($templateName)) {
+                continue;
+            }
+            if (0 === strpos($templateName, '$')) {
+                //支持加载变量文件名
+                $templateName = $this->get(substr($templateName, 1));
+            }
+
+            $template = $this->parseTemplateFile($templateName);
+
+            if ($template) {
+                // 获取模板文件内容
+                $parseStr .= file_get_contents($template);
+            }
+        }
+
+        return $parseStr;
+    }
+
+    /**
+     * 解析模板文件名
+     * @param string $template
+     * @return string
+     * @throws Exception
+     */
+    protected function parseTemplateFile(string $template): string
+    {
+        if ('' == pathinfo($template, PATHINFO_EXTENSION)) {
+
+            $template = $this->config['view_path'] . $template . '.' . ltrim($this->config['view_suffix'], '.');
+        }
+
+        if (is_file($template)) {
+            // 记录模板文件的更新时间
+            $this->includeFile[$template] = filemtime($template);
+
+            return $template;
+        }
+
+        throw new Exception('template not exists:' . $template);
+    }
+
+    /**
+     * 模板变量获取
+     * @access public
+     * @param  string $name 变量名
+     * @return mixed
+     */
+    public function get(string $name = '')
+    {
+        if ('' == $name) {
+            return $this->data;
+        }
+
+        $data = $this->data;
+
+        foreach (explode('.', $name) as $key => $val) {
+            if (isset($data[$val])) {
+                $data = $data[$val];
+            } else {
+                $data = null;
+                break;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * 分析标签属性
+     * @access public
+     * @param  string   $str 属性字符串
+     * @param  string   $name 不为空时返回指定的属性名
+     * @return array
+     */
+    public function parseAttr(string $str, string $name = null): array
+    {
+        $regex = '/\s+(?>(?P<name>[\w-]+)\s*)=(?>\s*)([\"\'])(?P<value>(?:(?!\\2).)*)\\2/is';
+        $array = [];
+
+        if (preg_match_all($regex, $str, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $array[$match['name']] = $match['value'];
+            }
+            unset($matches);
+        }
+
+        if (!empty($name) && isset($array[$name])) {
+            return $array[$name];
+        }
+
+        return $array;
     }
 
     /**
@@ -617,6 +777,27 @@ class Template{
                 $regex = $begin . '((?:[\$]{1,2}[a-wA-w_]|[\:\~][\$a-wA-w_]|[+]{2}[\$][a-wA-w_]|[-]{2}[\$][a-wA-w_]|\/[\*\/])(?>[^' . $end . ']*))' . $end;
             } else {
                 $regex = $begin . '((?:[\$]{1,2}[a-wA-w_]|[\:\~][\$a-wA-w_]|[+]{2}[\$][a-wA-w_]|[-]{2}[\$][a-wA-w_]|\/[\*\/])(?>(?:(?!' . $end . ').)*))' . $end;
+            }
+        }else{
+            $begin  = $this->config['taglib_begin'];
+            $end    = $this->config['taglib_end'];
+            $single = strlen(ltrim($begin, '\\')) == 1 && strlen(ltrim($end, '\\')) == 1;
+
+            switch ($tagName) {
+                case 'restoreliteral':
+                    $regex = '<!--###literal(\d+)###-->';
+                    break;
+                case 'include':
+                    $name = 'file';
+                    if (empty($name)) {
+                        $name = 'name';
+                    }
+                    if ($single) {
+                        $regex = $begin . $tagName . '\b\s+(?>(?:(?!' . $name . '=).)*)\b' . $name . '=([\'\"])(?P<name>[\$\w\-\/\.\:@,\\\\]+)\\1(?>[^' . $end . ']*)' . $end;
+                    } else {
+                        $regex = $begin . $tagName . '\b\s+(?>(?:(?!' . $name . '=).)*)\b' . $name . '=([\'\"])(?P<name>[\$\w\-\/\.\:@,\\\\]+)\\1(?>(?:(?!' . $end . ').)*)' . $end;
+                    }
+                    break;
             }
         }
         return '/' . $regex . '/is';
