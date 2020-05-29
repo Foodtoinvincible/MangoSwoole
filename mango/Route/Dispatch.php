@@ -10,6 +10,7 @@ namespace Mango\Route;
 
 
 
+use Mango\Config;
 use Mango\Exception\ClassNotFoundException;
 use Mango\Exception\FuncNotFoundException;
 use Mango\Exception\MethodException;
@@ -60,6 +61,7 @@ class Dispatch{
      */
     public function __construct(Request $request,string $url,array $vars){
         $urls = explode('/',$url);
+        $this->namespace = Config::getInstance()->get('app.server.controller');
         if (count($urls) > 1) {
             $this->action = array_pop($urls);
         }
