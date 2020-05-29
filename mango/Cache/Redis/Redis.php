@@ -61,17 +61,17 @@ class Redis{
     }
 
     /**
-     * 获取连接池配置信息配送
+     * 获取连接池配置
      * @param string $name
      * @return array
      */
     public function getPoolConfig(string $name){
         return [
-            'max_wait_time' => Config::getInstance()->get("database.connections.{$name}.max_wait_time",30),
-            'max_count'     => Config::getInstance()->get("database.connections.{$name}.max_count",3),
-            'min_count'     => Config::getInstance()->get("database.connections.{$name}.min_count",1),
-            'timer_ms'      => Config::getInstance()->get("database.connections.{$name}.timer_ms",60000),
-            'spare_time'    => Config::getInstance()->get("database.connections.{$name}.spare_time",60000),
+            'max_wait_time' => Config::getInstance()->get("app.redis.max_wait_time",30),
+            'max_count'     => Config::getInstance()->get("app.redis.max_count",3),
+            'min_count'     => Config::getInstance()->get("app.redis.min_count",1),
+            'timer_ms'      => Config::getInstance()->get("app.redis.timer_ms",60000),
+            'spare_time'    => Config::getInstance()->get("app.redis.spare_time",60000),
         ];
     }
 
