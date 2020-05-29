@@ -14,6 +14,8 @@ MangoSwoole 是一款基于Swoole Server 开发的常驻内存型的PHP框架
 * 协程Redis连接池
 * 自定义进程
 * 定时器
-
+* 协程通用链接池
+* 路由
+* 验证器
 
 ### 开发中
