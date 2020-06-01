@@ -96,6 +96,6 @@ class Redis{
      */
     public function __call($method, $arguments)
     {
-        $this->handler()->$method(...$arguments);
+        $this->handler()->{$method}(...$arguments);
     }
 }
