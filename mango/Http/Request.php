@@ -95,6 +95,19 @@ class Request{
      */
     protected $param = [];
 
+    /**
+     * 执行方法名
+     * @var string
+     */
+    protected $action;
+
+    /**
+     * 执行控制器
+     * @var string
+     */
+    protected $controller;
+
+
     public function __construct(\Swoole\Http\Request $request,?Response $response){
         $this->request  = $request;
         $this->response = $response;
@@ -111,6 +124,28 @@ class Request{
         $this->cookie  = $request->cookie ?? [];
         $this->file    = $request->files ?? [];
         $this->method  = $this->server['request_method'];
+    }
+
+    /**
+     * 读取或设置执行方法名
+     * @param string $name  名称
+     * @return string
+     */
+    public function action(string $name = ''){
+        if ($name)
+            $this->action = $name;
+        return $this->action;
+    }
+
+    /**
+     * 读取或设置控制器
+     * @param string $name  名称
+     * @return string
+     */
+    public function controller(string $name = ''){
+        if ($name)
+            $this->controller = $name;
+        return $this->controller;
     }
 
     /**
@@ -479,6 +514,8 @@ class Request{
      * @return array|mixed|null
      */
     public function ip(){
+        if ($this->header('x-real-ip'))
+            return $this->header('x-real-ip');
         return $this->server('remote_addr');
     }
 
@@ -488,5 +525,13 @@ class Request{
      */
     public function getClientInfo(){
         return App::getInstance()->getServer()->getClientInfo($this->getSwooleRequest()->fd);
+    }
+
+    /**
+     * 获取域名
+     * @return string
+     */
+    public function domain(): string{
+        return 'http://'.$this->header['host'];
     }
 }
