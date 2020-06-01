@@ -9,80 +9,116 @@
 namespace Mango\Route;
 
 
-use Mango\Http\Request;
-
-class RuleItem{
+use Closure;
+class RuleItem extends Rule {
 
     /**
-     * 到
+     * 路由名称
      * @var string
      */
-    private $to;
+    private $name;
 
     /**
-     * 规则
-     * @var string
+     * @var Route
      */
-    private $rule;
+    protected $router;
+    /**
+     * @var RuleGroup
+     */
+    protected $group;
 
     /**
-     * RuleItem constructor.
-     * @param string $rule 路由规则
-     * @param string $to 执行至那里
+     * 路由地址
+     * @var string|Closure
      */
-    public function __construct(string $rule,string $to){
-        $this->rule = $this->parseRule($rule);
-        $this->to = $to;
+    protected $route;
+
+    /**
+     * 架构函数
+     * @access public
+     * @param  Route             $router 路由实例
+     * @param  RuleGroup         $parent 上级对象
+     * @param  string            $name 路由标识
+     * @param  string|\Closure   $route 路由地址
+     * @param  string            $method 请求类型
+     */
+    public function __construct(Route $router,RuleGroup $parent,string $name = null, $route = null,string $method = '*'){
+        $this->name = $name;
+        $this->router = $router;
+        $this->group = $parent;
+        $this->route = $this->parseRoute($route);
+        $this->setMethod($method);
     }
 
 
     /**
-     * 解析路由规则
-     * @param string $rule 路由规则
-     * @return string
+     * 解析路由地址
+     * @param string|Closure $route 路由地址
+     * @return string|Closure
      */
-    protected function parseRule(string $rule): string{
+    protected function parseRoute($route){
 
-        $rules = explode('/',$rule);
+        if (!is_string($route)) return $route;
 
-        foreach ($rules as &$item){
+        $routes = explode('/',$route);
+
+        foreach ($routes as &$item){
             if (strpos($item,':') === 0){
                 $item = '<' . substr($item,1) . '>';
             }else if(preg_match('/\[(\w+)\]/',$item,$matches)){
                 $item = '[' . $matches[1] . ']';
             }
         }
-        return implode('/',$rules);
+        return implode('/',$routes);
+    }
+
+    /**
+     * 判断请求类型是否存在
+     * @param string $method
+     * @return bool
+     */
+    public function hasMethod(string $method): bool {
+        $array = explode('|',$this->getOptions('method'));
+        return in_array(strtolower($method),$array) || in_array('*',$array);
     }
 
 
     /**
      * 检测路由（含路由匹配）
-     * @access public
-     * @param  Request      $request  请求对象
-     * @param  string       $url      访问地址
-     * @return Dispatch|bool
+     * @param string $url       请求地址
+     * @param string $method    请求类型
+     * @return array|bool       正确返回数组 [0 => 路由变量[],1 => RuleItem]
      */
-    public function check(Request $request,string $url){
-        $result = $this->checkRule($request,$url);
-        if ($result !== false){
-            return new Dispatch($request,$this->getTo(),$result);
+    public function check(string $url,string $method){
+
+        if ($this->hasMethod($method)){
+            $result = $this->checkRule($url);
+            if ($result !== false){
+                return [$result,$this];
+            }
         }
+
+
         return false;
     }
 
 
     /**
      * 检测路由
-     * @param Request $request
      * @param string  $url
      * @return array|bool
      */
-    protected function checkRule(Request $request,string $url) {
-        return $this->match($request,$url,$this->rule);
+    protected function checkRule(string $url) {
+        return $this->match($url,$this->getFullName());
     }
 
-    protected function match(Request $request,string $url, string $rule){
+    /**
+     * 路由匹配
+     * @param string $url
+     * @param string $rule
+     * @return array|bool
+     */
+    protected function match(string $url, string $rule){
         $vars = [];
         $urls = explode('/',$url);
         $rules = explode('/',$rule);
@@ -124,11 +160,26 @@ class RuleItem{
     }
 
     /**
+     * 获取完整的路由名称
      * @return string
      */
-    public function getTo(): string{
-
-        return $this->to;
+    public function getFullName(): string{
+        $name = [];
+        $group = $this->group;
+        do{
+            if($group->getName())
+                $name[] = $group->getName();
+        }while($group = $group->parent());
+        $name = implode('/',array_reverse($name)). '/' . $this->name;
+        return trim($name,'/');
     }
 
+    /**
+     * 获取路由地址
+     * @return Closure|string
+     */
+    public function getRoute(){
+        // 检查前置
+        return $this->route;
+    }
 }

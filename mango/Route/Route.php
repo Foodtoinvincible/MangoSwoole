@@ -15,117 +15,135 @@ use Mango\Http\Request;
 
 class Route{
 
-    static $rule  = [
-        '*'       => [],
-        'get'     => [],
-        'post'    => [],
-        'put'     => [],
-        'patch'   => [],
-        'delete'  => [],
-        'head'    => [],
-        'options' => [],
-    ];
+
+    /**
+     * @var RuleGroup
+     */
+    protected $group;
+
+    public function __construct(){
+        $this->group = new RuleGroup($this);
+    }
+
+    /**
+     * 设置当前分组
+     * @access public
+     * @param RuleGroup $group 域名
+     * @return void
+     */
+    public function setGroup(RuleGroup $group): void
+    {
+        $this->group = $group;
+    }
+
+    /**
+     * 获取当前分组
+     * @return RuleGroup
+     */
+    public function getGroup(): RuleGroup{
+       return $this->group;
+    }
 
     /**
      * 添加路由
-     * @param string $rule      规则
-     * @param string $to        路由到
-     * @param string $method    请求方法 ,隔开 * 全部
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
+     * @param string $method    请求方法 |隔开 * 全部
+     * @return RuleItem
      */
-    public static function rule(string $rule,string $to,string $method = '*'){
-        $methods = explode(',',$method);
-        foreach ($methods as $item){
-            if (isset(self::$rule[$item])){
-                self::$rule[$item][] = new RuleItem($rule,$to);
-            }
-        }
+    public function rule(string $name,string $route,string $method = '*'){
+        return $this->group->addRule($name, $route, $method);
     }
 
     /**
      * 添加GET 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function get(string $rule,string $to){
-        self::$rule['get'][] = new RuleItem($rule,$to);
+    public function get(string $name,string $route){
+        $this->rule($name,$route,'GET');
     }
 
     /**
      * 添加POST 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function post(string $rule,string $to){
-        self::$rule['post'][] = new RuleItem($rule,$to);
+    public function post(string $name,$route){
+        $this->rule($name,$route,'POST');
     }
     /**
      * 添加PUT 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function put(string $rule,string $to){
-        self::$rule['put'][] = new RuleItem($rule,$to);
+    public function put(string $name,$route){
+        $this->rule($name,$route,'PUT');
     }
 
     /**
      * 添加PATCH 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function patch(string $rule,string $to){
-        self::$rule['patch'][] = new RuleItem($rule,$to);
+    public function patch(string $name,$route){
+        $this->rule($name,$route,'PATCH');
     }
     /**
      * 添加DELETE 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function delete(string $rule,string $to){
-        self::$rule['delete'][] = new RuleItem($rule,$to);
+    public function delete(string $name,$route){
+        $this->rule($name,$route,'DELETE');
     }
 
     /**
      * 添加OPTIONS 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function options(string $rule,string $to){
-        self::$rule['options'][] = new RuleItem($rule,$to);
+    public function options(string $name,$route){
+        $this->rule($name,$route,'OPTIONS');
     }
 
     /**
      * 添加HEAD 路由
-     * @param string $rule      规则
-     * @param string $to        路由到
+     * @param string $name      路由名称
+     * @param mixed  $route     路由地址
      */
-    public static function head(string $rule,string $to){
-        self::$rule['head'][] = new RuleItem($rule,$to);
+    public function head(string $name,$route){
+        $this->rule($name,$route,'HEAD');
+    }
+
+    /**
+     * 路由分组
+     * @param mixed $name
+     * @param null $route
+     * @return RuleGroup
+     */
+    public function group($name,$route = null){
+        if ($name instanceof \Closure){
+            $route = $name;
+            $name = '';
+        }
+        $group = new RuleGroup($this,$this->group,$name,$route);
+        return $group->parseRule();
     }
 
     /**
      * 匹配路由
-     * @param Request $request
-     * @param string  $url
-     * @param string  $method
-     * @return Dispatch|null
+     * @param string $url       请求地址
+     * @param string $method    请求类型
+     * @return array|void       返回数组 [0 => 路由变量[],1 => RuleItem]
      */
-    public static function match(Request $request,string $url,string $method): ?Dispatch{
+    public function match(string $url,string $method): array {
         $method = strtolower($method);
         $url = ltrim($url,'/');
 
-        /**
-         * @var $rule RuleItem[]
-         */
-        $rule = self::$rule[$method];
-        if ($method != '*')
-            $rule = array_merge(self::$rule['*'],$rule);
-
-        foreach ($rule as $item){
-            $dispatch = $item->check($request,$url);
-            if ($dispatch){
-                return $dispatch;
-            }
-        }
+        $result = $this->group->getTop()->check($url,$method);
+        if ($result)
+            return $result;
         throw new NotFountRouteException("Route not exits: {$url}");
     }
 }
