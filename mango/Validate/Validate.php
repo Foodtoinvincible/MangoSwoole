@@ -129,11 +129,11 @@ class Validate{
      */
     public function check(array $data,array $rules = []):bool {
 
+        $this->error = [];
         if (empty($rules)) {
             // 读取验证规则
             $rules = $this->rule;
         }
-
         foreach ($rules as $key => $rule) {
             // field => 'rule1|rule2...' field => ['rule1','rule2',...]
 
@@ -158,7 +158,7 @@ class Validate{
                 }
             }
         }
-        return true;
+        return empty($this->error);
     }
 
     /**
@@ -203,7 +203,7 @@ class Validate{
 
     /**
      * 获取错误信息
-     * @param $filed
+     * @param $field
      * @param $rule
      * @return string
      */
@@ -327,7 +327,6 @@ class Validate{
                     throw new \InvalidArgumentException("validate rule not exits: {$rule}");
                 }
                 break;
-
         }
         return $result;
     }
