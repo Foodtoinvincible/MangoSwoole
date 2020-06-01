@@ -13,15 +13,31 @@ use Mango\Component\Singleton;
 
 /**
  * 事件管理。
- * Class Event
+ * Class EventRegister
  * @package Mango
  */
-class Event{
+class EventRegister{
 
-    const Message = 'message';
-    const Close = 'close';
+    const Message = 'Message';
+    const Close = 'Close';
     const Handshake = 'Handshake';
     const Open  = 'Open';
+    const Start = 'Start';
+    const Shutdown = 'Shutdown';
+    const WorkerStart = 'WorkerStart';
+    const WorkerStop = 'WorkerStop';
+    const WorkerExit = 'WorkerExit';
+    const Connect = 'Connect';
+    const Receive = 'Receive';
+    const Packet = 'Packet';
+    const Task = 'Task';
+    const Finish = 'Finish';
+    const PipeMessage = 'PipeMessage';
+    const WorkerError = 'WorkerError';
+    const ManagerStart = 'ManagerStart';
+    const ManagerStop = 'ManagerStop';
+    const BeforeReload = 'BeforeReload';
+    const AfterReload = 'AfterReload';
 
     /**
      * 事件
