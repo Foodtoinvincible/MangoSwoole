@@ -10,7 +10,7 @@ namespace Mango\Websocket;
 
 
 use Mango\Component\Singleton;
-use Mango\Event;
+use Mango\EventRegister;
 use Mango\Exception\EventException;
 use Mango\Http\Request;
 use Mango\Http\Response;
@@ -46,10 +46,10 @@ class Server{
      * 握手事件
      */
     protected function onHandshake(){
-        if (Event::has('onHandshake')){
-            $this->socket->on('handshake',function (\Swoole\Http\Request $swooleRequest, \Swoole\Http\Response $swooleresponse){
+        if (EventRegister::has(EventRegister::Handshake)){
+            $this->socket->on(EventRegister::Handshake,function (\Swoole\Http\Request $swooleRequest, \Swoole\Http\Response $swooleresponse){
                 $request = new Request($swooleRequest,new Response($swooleresponse));
-                $callback = Event::get('onHandshake');
+                $callback = EventRegister::get(EventRegister::Handshake);
                 try {
                     return call_user_func($callback,$request,$request->response());
                 }catch (\Error $error){
@@ -66,11 +66,11 @@ class Server{
         }
     }
     protected function onOpen(){
-        if (!Event::has('onHandshake')){
-            if (Event::has('onOpen')){
+        if (!EventRegister::has(EventRegister::Open)){
+            if (EventRegister::has(EventRegister::Open)){
 
-                $this->socket->on('open',function (\Swoole\WebSocket\Server $server, \Swoole\Http\Request $request){
-                    $callback = Event::get('onOpen');
+                $this->socket->on(EventRegister::Open,function (\Swoole\WebSocket\Server $server, \Swoole\Http\Request $request){
+                    $callback = EventRegister::get(EventRegister::Open);
                     try {
                         call_user_func($callback,$request);
                     }catch (\Error $error){
@@ -86,11 +86,11 @@ class Server{
         }
     }
     protected function onMessage(){
-        if (!Event::has('onMessage')){
+        if (!EventRegister::has(EventRegister::Message)){
             throw new EventException('Websocket: onMessage event not exits');
         }
-        $this->socket->on('message',function (\Swoole\WebSocket\Server $server,\Swoole\WebSocket\Frame $frame){
-            $callback = Event::get('onMessage');
+        $this->socket->on(EventRegister::Message,function (\Swoole\WebSocket\Server $server,\Swoole\WebSocket\Frame $frame){
+            $callback = EventRegister::get(EventRegister::Message);
             try {
                 call_user_func($callback,$server,$frame);
             }catch (\Error $error){
@@ -103,9 +103,9 @@ class Server{
     }
 
     protected function onClose(){
-        if (Event::has('onClose')){
-            $this->socket->on('close',function (\Swoole\WebSocket\Server $server,int $fd,int $reactorId){
-                $callback = Event::get('onClose');
+        if (EventRegister::has(EventRegister::Close)){
+            $this->socket->on(EventRegister::Close,function (\Swoole\WebSocket\Server $server,int $fd,int $reactorId){
+                $callback = EventRegister::get(EventRegister::Close);
                 try {
                     call_user_func($callback,$server,$fd,$reactorId);
                 }catch (\Error $error){
