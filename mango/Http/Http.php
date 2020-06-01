@@ -11,8 +11,7 @@ namespace Mango\Http;
 
 
 use Mango\Component\Singleton;
-use Mango\Route\Route;
-use Swoole\Event;
+use Mango\Facade\Route;
 use Swoole\Http\Server;
 
 /**
@@ -37,6 +36,7 @@ class Http{
 
     protected function initialize(){
         $this->load();
+
         $this->onRequest();
     }
 
@@ -66,10 +66,9 @@ class Http{
             }
             try {
                 $request = new Request($swooleRequest,new Response($swooleresponse));
-                $dispatch = Route::match($request,$request->pathInfo(),$request->method());
-                if ($dispatch){
-                    $dispatch->exec();
-                }
+                [$vars,$rule] = Route::match($request->pathInfo(),$request->method());
+                $dispatch = (new Dispatch($request,$rule->getRoute(),$vars));
+                $dispatch->exec();
                 if (!$request->response()->isOutput())
                     $request->response()->send();
             }catch (\Error $error){

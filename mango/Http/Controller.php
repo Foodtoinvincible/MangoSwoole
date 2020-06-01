@@ -26,7 +26,7 @@ abstract class Controller{
      * 中间件
      * @var array
      */
-    private $middleware = [];
+    protected $middleware = [];
 
     protected $disable = [
         '__hook','__construct','__set','__get','__make',
@@ -38,7 +38,13 @@ abstract class Controller{
     public function __construct(Request $request,Response $response){
         $this->response = $response;
         $this->request = $request;
+        $this->initialize();
     }
+
+    /**
+     * 初始化
+     */
+    protected function initialize(){}
 
     /**
      * 创建控制器
@@ -77,6 +83,7 @@ abstract class Controller{
             throw new MethodException("method {$action}: Illegal call");
         }
         // TODO ...
+
     }
 
     private function middleware(){

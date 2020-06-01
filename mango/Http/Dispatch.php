@@ -6,18 +6,13 @@
  * @Email : 30191306465@qq.com
  */
 
-namespace Mango\Route;
+namespace Mango\Http;
 
 
 
 use Mango\Config;
 use Mango\Exception\ClassNotFoundException;
-use Mango\Exception\FuncNotFoundException;
-use Mango\Exception\MethodException;
 use Mango\Exception\ParamException;
-use Mango\Http\Controller;
-use Mango\Http\Request;
-use Mango\Http\Response;
 use \ReflectionClass;
 use \Throwable;
 class Dispatch{
@@ -26,13 +21,13 @@ class Dispatch{
      * 访问方法
      * @var string
      */
-    protected $action = 'index';
+    public $action = 'index';
 
     /**
      * 访问控制器
      * @var string
      */
-    protected $controller = 'Index';
+    public $controller = 'Index';
 
     /**
      * 控制器实例
@@ -61,39 +56,98 @@ class Dispatch{
      */
     public function __construct(Request $request,string $url,array $vars){
         $urls = explode('/',$url);
-        $this->namespace = Config::getInstance()->get('app.server.controller');
         if (count($urls) > 1) {
             $this->action = array_pop($urls);
         }
         if (count($urls) > 0) {
             $this->controller = implode("\\",$urls);
         }
+        $this->namespace = Config::getInstance()->get('app.server.controller');
         $this->request = $request;
-    }
+        $this->controller = $this->namespace . $this->controller;
 
-    /**
-     * 获取控制器完整命名空间
-     * @return string
-     */
-    public function getFullControllerNamespace(){
-        return $this->namespace . $this->controller;
     }
 
     /**
      * 判断控制器是否存在
      */
     protected function isController(){
-        if (!class_exists($this->getFullControllerNamespace())){
-            throw new ClassNotFoundException("Controller Not Found: " . $this->getFullControllerNamespace(),404);
+        if (!class_exists($this->controller)){
+            throw new ClassNotFoundException("Controller Not Found: " . $this->controller,404);
         }
     }
 
     /**
-     * 执行
+     * 执行调度
      * @throws Throwable
      */
     public function exec(){
-        $this->newController()->callHook()->callAction();
+        $this->request->action($this->action);
+        $this->request->controller($this->controller);
+        $this->controller()->hook();
+        if ($this->middleware() === false){
+            $this->action($this->action);
+        }
+    }
+
+    /**
+     * 执行控制器中间件
+     * @return bool
+     * @throws \ReflectionException
+     */
+    public function middleware(){
+        $data = $this->getProperty('middleware');
+        if (empty($data)){
+            return false;
+        }
+
+        if (!is_array($data)){
+            $data = [$data];
+        }
+        foreach ($data as $item){
+            [$middleware,$action,$argv] = $this->parseMiddleware($item);
+            if (in_array(strtolower($this->action),$action) || in_array('*',$action)) break;
+        }
+
+        if (!class_exists($middleware)){
+            throw new ClassNotFoundException('Middleware not exits: ' . $middleware);
+        }
+        $object = new $middleware();
+        call_user_func([$object,'handler'],$this->request,function (Request $request){
+             return $this->action($this->action);
+        },...$argv);
+        return true;
+    }
+
+    protected function arrayValToLower(array $arr){
+        $res = [];
+        foreach ($arr as $val){
+            $res[] = strtolower($val);
+        }
+        return $res;
+    }
+
+    /**
+     * 解析中间件
+     * @param $item
+     * @return array
+     */
+    protected function parseMiddleware($item):array {
+        if (is_array($item)){
+            $middleware = $item['middleware'];
+            $action = $item['action'] ?? [];
+            $argv = $item['argv'] ?? [];
+        }else if ($item instanceof \Closure){
+            [$middleware,$action,$argv] = $item($this->request());
+        }else{
+            $middleware = $item;
+            $action = ['*'];
+            $argv = [];
+        }
+        if (is_string($action))
+            $action = explode(',',$action);
+
+        return [$middleware,$this->arrayValToLower($action),$argv];
     }
 
     /**
@@ -109,9 +163,9 @@ class Dispatch{
      * @return $this
      * @throws Throwable
      */
-    protected function callHook(){
+    protected function hook(){
         try {
-            call_user_func_array([$this->getControllerInstance(),'__hook'],[$this->action(),$this->request(),$this->request()->response()]);
+            call_user_func_array([$this->getControllerInstance(),'__hook'],[$this->action,$this->request(),$this->request()->response()]);
         }catch (Throwable $throwable){
             throw $throwable;
         }
@@ -119,15 +173,15 @@ class Dispatch{
     }
 
     /**
-     * 调用控制器方法。开始处理请求
+     *  调用控制器方法。开始处理请求
      * @param string $action
+     * @return mixed|null
      * @throws Throwable
      */
-    protected function callAction(string $action = ''){
-        $action = $action ?: $this->action();
+    protected function action(string $action){
         try {
-            $params = $this->getMethodParams($this->getFullControllerNamespace(),$action);
-            call_user_func_array([$this->getControllerInstance(),$action],$params);
+            $params = $this->getMethodParams($this->controller,$action);
+            return call_user_func_array([$this->getControllerInstance(),$action],$params);
         }catch (Throwable $throwable){
             throw $throwable;
         }
@@ -138,10 +192,10 @@ class Dispatch{
      * @return $this
      * @throws Throwable
      */
-    protected function newController(){
+    protected function controller(){
         $this->isController();
         try {
-            $this->controllerInstance = call_user_func_array([$this->getFullControllerNamespace(),'__make'],[$this->request(),$this->request()->response()]);
+            $this->controllerInstance = call_user_func_array([$this->controller,'__make'],[$this->request(),$this->request()->response()]);
         } catch (Throwable $e) {
             throw $e;
         }
@@ -157,29 +211,13 @@ class Dispatch{
     }
 
     /**
-     * 获取访问方法
-     * @return string
-     */
-    public function action():string{
-        return $this->action;
-    }
-
-    /**
-     * 获取访问控制器
-     * @return string
-     */
-    public function controller(): string{
-        return $this->controller;
-    }
-
-    /**
      * 获得类的方法参数
      * @param ReflectionClass|string      $class
      * @param string $methodsName
      * @return array
      * @throws \ReflectionException
      */
-    protected function getMethodParams($class, $methodsName = '__construct') {
+    public function getMethodParams($class, $methodsName = '__construct') {
 
         $paramArr = []; // 记录参数，和参数类型
 
@@ -258,5 +296,25 @@ class Dispatch{
         }
 
         return $paramArr;
+    }
+
+    /**
+     * 获取控制器属性
+     * @param string $name
+     * @return mixed|null
+     * @throws \ReflectionException
+     */
+    protected function getProperty(string $name){
+
+        // 通过反射获取对象信息
+        $ref = new ReflectionClass($this->getControllerInstance());
+        if ($ref->hasProperty($name)){
+            $refProperty = $ref->getProperty($name);
+            if (!$refProperty->isPublic())
+                $refProperty->setAccessible(true);
+            return $refProperty->getValue($this->getControllerInstance());
+        }
+        return null;
+
     }
 }
