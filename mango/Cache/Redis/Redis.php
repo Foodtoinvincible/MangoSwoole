@@ -93,9 +93,10 @@ class Redis{
      * 快速调用 Redis 的方法
      * @param $method
      * @param $arguments
+     * @return mixed
      */
     public function __call($method, $arguments)
     {
-        $this->handler()->{$method}(...$arguments);
+        return $this->handler()->{$method}(...$arguments);
     }
 }
