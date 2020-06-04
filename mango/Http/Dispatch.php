@@ -62,7 +62,7 @@ class Dispatch{
         if (count($urls) > 0) {
             $this->controller = implode("\\",$urls);
         }
-        $this->namespace = Config::getInstance()->get('app.server.controller');
+        $this->namespace = Config::getInstance()->get('app.http.controller');
         $this->request = $request;
         $this->controller = $this->namespace . $this->controller;
 
