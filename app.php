@@ -14,7 +14,15 @@ return [
 
     'server'    => [
         'type'          => SERVER_TYPE_HTTP,
-        'controller'    => '\\App\Http\Index\Controller\\'
+    ],
+    /**
+     * HTTP配置
+     */
+    'http'      => [
+        // 异常处理
+        'exception' => \Common\Exception\Handler::class,
+        // 控制器命名空间
+        'controller'    => '\\App\\Http\\'
     ],
 
     //----------------------------------------
@@ -32,7 +40,7 @@ return [
     //----------------------------------------
     'load' => [
         // 是否加载助手函数
-        'helper' => true
+        'helper' => true,
     ],
 
     //----------------------------------------
@@ -91,9 +99,9 @@ return [
                 // 池中最大连接数量
                 'max_count'     => 3,
                 // 定时器执行周期
-                'timer_ms'      => 12000,
+                'timer_ms'      => 5000,
                 // 池中对象最大空闲时间
-                'spare_time'    => 30
+                'spare_time'    => 10
             ]
         ],
     ],
