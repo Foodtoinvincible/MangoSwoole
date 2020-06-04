@@ -67,6 +67,12 @@ class Validate{
     ];
 
     /**
+     * 附加类型验证
+     * @var array
+     */
+    protected $type = [];
+
+    /**
      * 添加字段验证规则
      * @access protected
      * @param string|array $name 字段名称或者规则数组
@@ -79,6 +85,21 @@ class Validate{
             $this->rule = $name + $this->rule;
         } else {
             $this->rule[$name] = $rule;
+        }
+        return $this;
+    }
+
+    /**
+     * 附加验证规则
+     * @param              $rule
+     * @param Closure|null $next
+     * @return $this
+     */
+    public function type($rule,\Closure $next = null){
+        if (is_array($rule)){
+            $this->type += $rule;
+        }else{
+            $this->type[$rule] = $next;
         }
         return $this;
     }
@@ -111,6 +132,15 @@ class Validate{
         return $this;
     }
 
+    /**
+     * 清理
+     */
+    public function clear(){
+        $this->error = [];
+        $this->type = [];
+        $this->rule = [];
+        $this->data = [];
+    }
     /**
      * 是否批量
      * @param bool $is
@@ -322,7 +352,10 @@ class Validate{
                 }else if (isset($this->regx[$rule])){
                     // 正则
                     $result = preg_match($this->regx[$rule],$value);
-                }else{
+                }else if(isset($this->type[$rule])){
+                    // 附加规则
+                    $result = call_user_func_array($this->type[$rule], [$value, $rule, $data, $field]);
+                } else{
                     // 找不到...
                     throw new \InvalidArgumentException("validate rule not exits: {$rule}");
                 }
