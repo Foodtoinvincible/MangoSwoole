@@ -20,73 +20,22 @@ use Mango\Template\Template;
 class Error{
 
 
-    protected static function report(\Throwable $throwable){
-        // 收集异常数据
-        if (App::isDebug()) {
-            $data = [
-                'file'    => $throwable->getFile(),
-                'line'    => $throwable->getLine(),
-                'message' => $throwable->getMessage(),
-                'code'    => $throwable->getCode(),
-            ];
-            $log = "[{$data['code']}]{$data['message']}[{$data['file']}:{$data['line']}]";
-        } else {
-            $data = [
-                'message' => $throwable->getMessage(),
-                'code'    => $throwable->getCode(),
-            ];
-            $log = "[{$data['code']}]{$data['message']}";
-        }
-        $log .= "\r\n" . $throwable->getTraceAsString();
-//        return [$data,$log];
-    }
-
-
+    /**
+     * 错误处理
+     * @param \Error  $error
+     * @param Request $request
+     */
     public static function error(\Error $error,Request $request){
-        if (!App::isDebug()){
-            self::report($error);
-            return;
-        }
-        // debug 模式 输出界面
-        $view = Template::getInstance();
-        $html = $view->fetch(__DIR__.'/tpl/exception.html',[
-            'exception_name'    => get_class($error),
-            'code'              => $error->getCode(),
-            'msg'               => $error->getMessage(),
-            'line'              => $error->getLine(),
-            'file'              => $error->getFile(),
-            'trace'             => $error->getTrace()
-        ]);
-        $request->response()->html($html,404);
+        self::output($error,$request);
     }
 
+    /**
+     * 异常处理
+     * @param \Exception $exception
+     * @param Request    $request
+     */
     public static function exception(\Exception $exception,Request $request){
-        $view = Template::getInstance();
-        try {
-            $vars = [
-                'exception_name'    => str_replace("\\",'/',get_class($exception)),
-                'code'              => $exception->getCode(),
-                'msg'               => $exception->getMessage(),
-                'line'              => $exception->getLine(),
-                'file'              => $exception->getFile(),
-                'trace'             => $exception->getTrace(),
-                'code_list'         => self::handlerSourceCode(self::getSourceCode($exception)),
-                'vars'              => [
-                    'POST'              => $request->post(),
-                    'PUT'               => $request->put(),
-                    'GET'               => $request->get(),
-                    'Header'            => $request->header(),
-                    'Cookie'            => $request->cookie(),
-                    'Defined'           => get_defined_constants(true)['user']
-                ]
-            ];
-            $html = $view->fetch(__DIR__.'/tpl/exception.html',$vars);
-            $request->response()->html($html,404);
-        }catch (\Throwable $throwable){
-            var_dump($throwable->getMessage());
-
-
-        }
+        self::output($exception,$request);
     }
 
 
@@ -116,6 +65,11 @@ class Error{
         return $source;
     }
 
+    /**
+     * 处理源码
+     * @param array $source
+     * @return array
+     */
     protected static function handlerSourceCode(array $source){
 
         $code = implode("\n@@@handlerSourceCode@@@",$source['source']);
@@ -168,9 +122,33 @@ class Error{
         return $regx;
     }
 
-    protected static function output(\Throwable $throwable){
-
-
-
+    /**
+     * 异常输出
+     * @param \Throwable $throwable
+     * @param Request    $request
+     */
+    protected static function output(\Throwable $throwable, Request $request){
+        $view = Template::getInstance();
+        try {
+            $vars = [
+                'exception_name'    => str_replace("\\",'/',get_class($throwable)),
+                'code'              => $throwable->getCode(),
+                'msg'               => $throwable->getMessage(),
+                'line'              => $throwable->getLine(),
+                'file'              => $throwable->getFile(),
+                'trace'             => $throwable->getTrace(),
+                'code_list'         => self::handlerSourceCode(self::getSourceCode($throwable)),
+                'vars'              => [
+                    'POST'              => $request->post(),
+                    'PUT'               => $request->put(),
+                    'GET'               => $request->get(),
+                    'Header'            => $request->header(),
+                    'Cookie'            => $request->cookie(),
+                    'Defined'           => get_defined_constants(true)['user']
+                ]
+            ];
+            $html = $view->fetch(__DIR__.'/tpl/exception.html',$vars);
+            $request->response()->html($html,500);
+        }catch (\Throwable $throwable){}
     }
 }
