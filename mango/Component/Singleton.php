@@ -8,7 +8,11 @@
 
 namespace Mango\Component;
 
-
+/**
+ * 单例
+ * Trait Singleton
+ * @package Mango\Component
+ */
 trait Singleton
 {
     private static $instance;

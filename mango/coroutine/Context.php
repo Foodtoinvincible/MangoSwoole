@@ -9,14 +9,14 @@ class Context
 {
 
     /**
-     * The data in different coroutine environment.
+     * 不同协程环境下的数据。
      *
      * @var array
      */
     protected static $data = [];
 
     /**
-     * Get data by current coroutine id.
+     * 按当前协程ID获取数据。
      *
      * @param string $key
      *
@@ -49,7 +49,7 @@ class Context
     }
 
     /**
-     * Set data by current coroutine id.
+     * 按当前协程ID设置数据。
      *
      * @param string $key
      * @param        $value
@@ -60,7 +60,7 @@ class Context
     }
 
     /**
-     * Remove data by current coroutine id.
+     * 按当前协程ID删除数据。
      *
      * @param string $key
      */
@@ -70,7 +70,7 @@ class Context
     }
 
     /**
-     * Get data keys by current coroutine id.
+     * 按当前协程ID获取数据
      */
     public static function getDataKeys()
     {
