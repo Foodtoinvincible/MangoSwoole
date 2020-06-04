@@ -6,6 +6,7 @@
  * @Email: 30191306465@qq.com
  */
 
+require_once ROOT_PATH . 'MangoMain.php';
 
 /**
  * 常量定义

@@ -11,7 +11,6 @@ namespace Mango;
 
 use Mango\Db\Db;
 use Mango\Http\Http;
-use Mango\Websocket\Server as WebsocketServer;
 
 /**
  * Class App
@@ -20,13 +19,6 @@ use Mango\Websocket\Server as WebsocketServer;
  * @property Config $config
  */
 class App extends Container {
-
-
-    protected function __construct(){
-        $this->instance('app', $this);
-        $this->instance('Mango\Container', $this);
-    }
-
     /**
      * 程序开始运行时间(ms)
      * @var int
@@ -52,7 +44,7 @@ class App extends Container {
      */
     protected $bind = [
         'Db'        => Db::class,
-        'Config'    => Config::class
+        'Config'    => Config::class,
     ];
 
     /**
@@ -63,37 +55,68 @@ class App extends Container {
 
 
     /**
+     * 创建App
+     * App constructor.
+     */
+    protected function __construct(){
+        $this->instance('app', $this);
+        $this->instance('Mango\App', $this);
+        $this->instance('Mango\Container', $this);
+    }
+
+
+
+    /**
      * 运行程序
      */
     public function run() : void{
+        $this->invoke('MangoMain::initialize');
+
+        swoole_set_process_name('Mango Manager');
+
         $this->startMemoryOccupySize = memory_get_usage();
         // 一键协程
         \Swoole\Runtime::enableCoroutine();
         $this->startTime = microtime(true) * 1000;
         $this->initialize();
+        $this->event();
         $this->boot();
+    }
+
+    /**
+     * 事件注册
+     */
+    protected function event(){
+
+        $this->getServer()->bindEvent(EventRegister::Start,function (\Swoole\Server $server){
+            swoole_set_process_name('Mango Master');
+        });
+        $this->getServer()->bindEvent(EventRegister::WorkerStart,function (\Swoole\Server $server, int $workerId){
+            swoole_set_process_name("Worker {$workerId}");
+            foreach ($this->bind as $k=>$item){
+                $this->make($k,[]);
+            }
+        });
     }
 
     /**
      * 初始化
      */
     public function initialize(): void{
-        // 注册异常
-//        Error::register();
-        // 加载文件
         $this->load();
 
-        switch (Config::getInstance()->get('app.server.type')){
+        $type = Config::getInstance()->get('app.server.type');
+
+        $this->invoke('MangoMain::main',[$type]);
+
+        EventRegister::exec(EventRegister::ServerCreateBefore);
+        switch ($type){
             case SERVER_TYPE_HTTP:
                 $this->service = Http::getInstance();
                 break;
-            case SERVER_TYPE_WEBSOCKET:
-                $this->service = WebsocketServer::getInstance();
-                break;
         }
-        foreach ($this->bind as $k=>$item){
-            $this->make($k,[]);
-        }
+        EventRegister::exec(EventRegister::ServerCreateAfter,[$this->getServer()]);
+
     }
 
     /**
