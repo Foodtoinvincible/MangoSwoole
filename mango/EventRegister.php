@@ -18,26 +18,31 @@ use Mango\Component\Singleton;
  */
 class EventRegister{
 
-    const Message = 'Message';
-    const Close = 'Close';
-    const Handshake = 'Handshake';
-    const Open  = 'Open';
-    const Start = 'Start';
-    const Shutdown = 'Shutdown';
-    const WorkerStart = 'WorkerStart';
-    const WorkerStop = 'WorkerStop';
-    const WorkerExit = 'WorkerExit';
-    const Connect = 'Connect';
-    const Receive = 'Receive';
-    const Packet = 'Packet';
-    const Task = 'Task';
-    const Finish = 'Finish';
-    const PipeMessage = 'PipeMessage';
-    const WorkerError = 'WorkerError';
-    const ManagerStart = 'ManagerStart';
-    const ManagerStop = 'ManagerStop';
-    const BeforeReload = 'BeforeReload';
-    const AfterReload = 'AfterReload';
+    const Message               = 'Message';
+    const Close                 = 'Close';
+    const Handshake             = 'Handshake';
+    const Open                  = 'Open';
+    const Start                 = 'Start';
+    const Shutdown              = 'Shutdown';
+    const WorkerStart           = 'WorkerStart';
+    const WorkerStop            = 'WorkerStop';
+    const WorkerExit            = 'WorkerExit';
+    const Connect               = 'Connect';
+    const Receive               = 'Receive';
+    const Packet                = 'Packet';
+    const Task                  = 'Task';
+    const Finish                = 'Finish';
+    const PipeMessage           = 'PipeMessage';
+    const WorkerError           = 'WorkerError';
+    const ManagerStart          = 'ManagerStart';
+    const ManagerStop           = 'ManagerStop';
+    const BeforeReload          = 'BeforeReload';
+    const AfterReload           = 'AfterReload';
+    const Request               = 'request';
+    // 服务创建前事件
+    const ServerCreateBefore    = 'ServerCreateBefore';
+    // 服务创建后事件
+    const ServerCreateAfter     = 'ServerCreateAfter';
 
     /**
      * 事件
@@ -68,10 +73,26 @@ class EventRegister{
     /**
      * 获取事件
      * @param string $name
+     * @param null   $default 默认
      * @return mixed|null
      */
-    public static function get(string $name){
-        return self::$event[strtolower($name)] ?? null;
+    public static function get(string $name,$default = null){
+        return self::$event[strtolower($name)] ?? $default;
+    }
+
+    /**
+     * 执行指定事件
+     * @param string $name
+     * @param array  $vars
+     * @return mixed|null
+     */
+    public static function exec(string $name,array $vars=  []){
+
+        if (self::has($name)){
+            return call_user_func_array(self::get($name),$vars);
+        }else{
+            return null;
+        }
     }
 
     /**
