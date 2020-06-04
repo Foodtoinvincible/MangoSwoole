@@ -178,11 +178,11 @@ trait Pool{
             $connection = $array['connection'];
         }
         // 自动回收
-        defer(function () use ($connection,$pool){
+        defer(function () use ($connection,$pool,$name){
             if (method_exists($connection,'rollback')){
                 $connection->rollback();
             }
-            Context::remove();
+            Context::removeData("db.connection.{$name}");
             if (!$pool->isFull()){
                 $pool->push([
                     'last_use_time' => time(),
