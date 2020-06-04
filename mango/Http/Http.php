@@ -11,15 +11,17 @@ namespace Mango\Http;
 
 
 use Mango\Component\Singleton;
+use Mango\Config;
+use Mango\EventRegister;
 use Mango\Facade\Route;
+use Mango\Socket\ServerInterface;
 use Swoole\Http\Server;
 
 /**
  * Class Http
  * @package Mango\Http
- * @mixin Server
  */
-class Http{
+class Http implements ServerInterface {
 
     use Singleton;
 
@@ -28,16 +30,22 @@ class Http{
      */
     private $http;
 
+
+    /**
+     * 异常处理类
+     * @var string
+     */
+    protected $error;
+
     protected function __construct(string $host = '0.0.0.0', int $port = 8080){
         $this->http = new Server($host,$port);
 
         $this->initialize();
+        $this->event();
     }
 
     protected function initialize(){
         $this->load();
-
-        $this->onRequest();
     }
 
     /**
@@ -48,6 +56,9 @@ class Http{
             // 加载路由
             include_once APP_PATH . 'route.php';
         }
+        $this->error = Config::getInstance()->get('app.http.exception');
+        if (empty($this->error))
+            $this->error = Error::class;
     }
 
     /**
@@ -57,9 +68,12 @@ class Http{
         $this->http->start();
     }
 
-    protected function onRequest(){
+    /**
+     * 事件注册
+     */
+    protected function event(){
 
-        $this->http->on('request',function (\Swoole\Http\Request $swooleRequest, \Swoole\Http\Response $swooleresponse){
+        $event = EventRegister::get(EventRegister::Request,function (\Swoole\Http\Request $swooleRequest, \Swoole\Http\Response $swooleresponse){
             if ($swooleRequest->server['path_info'] == '/favicon.ico' || $swooleRequest->server['request_uri'] == '/favicon.ico') {
                 $swooleresponse->end();
                 return;
@@ -72,29 +86,31 @@ class Http{
                 if (!$request->response()->isOutput())
                     $request->response()->send();
             }catch (\Error $error){
-                Error::error($error,$request);
+                call_user_func([$this->error,'error'],$error,$request);
             } catch (\Exception $exception){
-                Error::exception($exception,$request);
+                call_user_func([$this->error,'exception'],$exception,$request);
             }
         });
+
+        // 请求事件
+        $this->bindEvent(EventRegister::Request,$event);
     }
 
     /**
-     * 使用 __call 实现调用Swoole\Http\Server对象
-     * @param $name
-     * @param $arguments
-     * @return mixed
-     */
-    public function __call($name, $arguments)
-    {
-        return call_user_func_array([$this->http,$name],$arguments);
-    }
-
-    /**
-     * 获取 Swoole\Http\Server 对象
+     * 获取 Swoole 对象
      * @return Server
      */
-    public function getSwooleHttpServer(): Server{
+    public function getSwooleServer(): Server{
         return $this->http;
+    }
+
+    /**
+     * 绑定事件
+     * @param string   $name
+     * @param callable $callback
+     * @return mixed|void
+     */
+    public function bindEvent(string $name, callable $callback){
+        $this->http->on($name,$callback);
     }
 }
